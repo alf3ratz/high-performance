@@ -24,7 +24,7 @@ void countHistogram(const std::string& filename, std::vector<int>& hystogram) {
         int count = file.gcount();
         bytesRead += count;
 
-        for (int i = 0; i < count; ++i) {
+        for (int i = 0; i < count; i++) {
             ++localHystogram[static_cast<unsigned char>(buffer[i])];
         }
     }
@@ -32,7 +32,7 @@ void countHistogram(const std::string& filename, std::vector<int>& hystogram) {
     file.close();
 
     std::lock_guard<std::mutex> lock(mutex);
-    for (int i = 0; i < HYSTOGRAM_SIZE; ++i) {
+    for (int i = 0; i < HYSTOGRAM_SIZE; i++) {
         hystogram[i] += localHystogram[i];
     }
 }
@@ -48,21 +48,16 @@ int main(int argc, char* argv[]) {
     std::vector<std::thread> threads;
     std::vector<int> hystogram(HYSTOGRAM_SIZE);
 
-    for (int i = 0; i < NUM_THREADS; ++i) {
+    for (int i = 0; i < NUM_THREADS; i++) {
         threads.emplace_back(countHistogram, filename, std::ref(hystogram));
     }
-
-    // while (progress < std::ifstream(filename, std::ios::binary).tellg()) {
-    //     std::cout << "Прогресс: " << progress << " байтов" << std::endl;
-    //     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    // }
 
     for (auto& thread : threads) {
         thread.join();
     }
 
     std::cout << "Гистограмма значений байтов:" << std::endl;
-    for (int i = 0; i < HYSTOGRAM_SIZE; ++i) {
+    for (int i = 0; i < HYSTOGRAM_SIZE; i++) {
         std::cout << i << ": " << hystogram[i] << std::endl;
     }
 
