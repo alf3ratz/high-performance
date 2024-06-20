@@ -79,7 +79,7 @@ void saveImagePPM(const std::string& filename, const std::vector<int>& pixels,
                   int width, int height) {
     std::ofstream file(filename, std::ios::binary);
     if (!file) {
-        std::cerr << "Ошибка при открытии файла" << std::endl;
+        std::cerr << "Ошибка при открытии файла\n";
         return;
     }
 
