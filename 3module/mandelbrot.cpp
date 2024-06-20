@@ -70,7 +70,7 @@ void workThread() {
         }
         if (task == -1) break;
 
-        // Выполнение задания (вычисление строки изображения)
+        // Выполяем строку изображения
         std::lock_guard<std::mutex> lock(taskQueueMutex);
         computeMandelbrotRow(task);
     }
@@ -104,7 +104,7 @@ int main() {
         threads.emplace_back(workThread);
     }
 
-    // Заполнение очереди заданиями (номерами строк)
+    // Заполненяем очередь заданиями - номерами строк
     for (int y = 0; y < HEIGHT; ++y) {
         taskQueue.push(y);
     }
