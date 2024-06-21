@@ -48,16 +48,21 @@ void saveImagePPM(const std::string& filename, const std::vector<int>& pixels,
 }
 
 int main() {
+    auto startTime = omp_get_wtime();
+    double cReal = 0.0;
+    double cImaginary = 0.0;
+    double zr = 0.0;
+    double zi = 0.0;
 #pragma omp parallel for collapse(2)
     for (int y = 0; y < HEIGHT; ++y) {
         for (int x = 0; x < WIDTH; ++x) {
             // Перевод координаты пикселя в комплексную плоскость
-            double cReal = MIN_REAL + x * (MAX_REAL - MIN_REAL) / WIDTH;
-            double cImaginary =
+            cReal = MIN_REAL + x * (MAX_REAL - MIN_REAL) / WIDTH;
+            cImaginary =
                 MAX_IMAGINARY - y * (MAX_IMAGINARY - MIN_IMAGINARY) / HEIGHT;
 
-            double zr = 0.0;
-            double zi = 0.0;
+            zr = 0.0;
+            zi = 0.0;
 
             int iterations = 0;
             while (zr * zr + zi * zi <= 4.0 && iterations < MAX_ITERATIONS) {
@@ -71,7 +76,8 @@ int main() {
             colors[index] = setColor(iterations);
         }
     }
-
+    auto endTime = omp_get_wtime();
+    std::cout << "Время: " << endTime - startTime << "\n";
     saveImagePPM("mandelbrot_openmp.ppm", colors, WIDTH, HEIGHT);
 
     return 0;

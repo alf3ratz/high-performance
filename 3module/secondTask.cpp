@@ -1,12 +1,13 @@
 #include <algorithm>
+#include <chrono>
 #include <execution>
 #include <iostream>
 #include <random>
 #include <thread>
 #include <vector>
 
-constexpr int VECTOR_SIZE = 25000000; 
-constexpr int NUM_THREADS = 8;
+constexpr int VECTOR_SIZE = 25000000;
+constexpr int NUM_THREADS = 4;
 
 void generate_random_data(std::vector<int>& numbers) {
     std::mt19937 gen(std::random_device{}());
@@ -22,50 +23,35 @@ void printExecutionTime(const std::chrono::steady_clock::time_point& startTime,
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                         endTime - startTime)
                         .count();
-    std::cout << msg << ": " << duration << " милисек\n";
+    std::cout << msg << ": " << duration << " миллисекунд\n";
 }
 
-void sortThread(std::vector<int>& numbers, int startIndex, int endIndex) {
-    std::vector<int> sortedChunk(numbers.begin() + startIndex,
-                                 numbers.begin() + endIndex);
-    std::sort(sortedChunk.begin(), sortedChunk.end());
-    numbers = std::move(sortedChunk);
+void sortThread(std::vector<int>& vec, int start, int end) {
+    std::sort(vec.begin() + start, vec.begin() + end);
 }
-void parallel_sort(std::vector<int>& numbers) {
-    std::vector<std::vector<int>> segmentedVectors(NUM_THREADS);
-    const int segmentSize = VECTOR_SIZE / NUM_THREADS;
 
-    for (int i = 0; i < NUM_THREADS; ++i) {
-        segmentedVectors[i] =
-            std::vector<int>(numbers.begin() + i * segmentSize,
-                             numbers.begin() + (i + 1) * segmentSize);
-    }
-
-    // Запуск сортировки на каждом потоке
+void parallelSort(std::vector<int>& vec) {
+    int chunkSize = vec.size() / NUM_THREADS;
     std::vector<std::thread> threads;
+
     for (int i = 0; i < NUM_THREADS; ++i) {
-        int startIndex = i * segmentSize;
-        int endIndex =
-            (i == NUM_THREADS - 1) ? VECTOR_SIZE : (i + 1) * segmentSize;
-        threads.emplace_back(sortThread, std::ref(segmentedVectors[i]),
-                             startIndex, endIndex);
+        int start = i * chunkSize;
+        int end = (i == NUM_THREADS - 1) ? vec.size() : (i + 1) * chunkSize;
+        threads.emplace_back(sortThread, std::ref(vec), start, end);
     }
 
-    // Ожидание завершения всех потоков
     for (auto& thread : threads) {
         thread.join();
     }
-    std::cout << "aboba\n";
-    std::vector<int> sortedNumbers;
-    sortedNumbers.reserve(numbers.size());
-    for (const auto& chunk : segmentedVectors) {
-        sortedNumbers.insert(sortedNumbers.end(), chunk.begin(), chunk.end());
-    }
-    std::inplace_merge(sortedNumbers.begin(),
-                       sortedNumbers.begin() + segmentSize,
-                       sortedNumbers.end());
 
-    numbers = std::move(sortedNumbers);
+    for (int step = chunkSize; step < vec.size(); step *= 2) {
+        for (int i = 0; i < vec.size(); i += 2 * step) {
+            int start = (i + step < vec.size()) ? i + step : vec.size();
+            int end = (i + 2 * step < vec.size()) ? i + 2 * step : vec.size();
+            std::inplace_merge(vec.begin() + i, vec.begin() + start,
+                               vec.begin() + end);
+        }
+    }
 }
 
 int main() {
@@ -84,13 +70,22 @@ int main() {
 
     auto dataCopySecond = numbers;
     start = std::chrono::steady_clock::now();
-    parallel_sort(dataCopySecond);
+    parallelSort(dataCopySecond);
+    if (dataCopySecond != dataCopy) {
+        std::cerr << "Ошибка: массивы неодинаково отсортированы\n";
+        return 1;
+    }
     end = std::chrono::steady_clock::now();
     printExecutionTime(start, end, "Multi-threaded manual sort time");
 
     auto dataCopyThird = numbers;
     start = std::chrono::steady_clock::now();
     std::sort(std::execution::par, dataCopyThird.begin(), dataCopyThird.end());
+    if (dataCopySecond != dataCopy || dataCopyThird != dataCopySecond ||
+        dataCopyThird != dataCopy) {
+        std::cerr << "Ошибка: массивы неодинаково отсортированы\n";
+        return 1;
+    }
     end = std::chrono::steady_clock::now();
     printExecutionTime(start, end,
                        "Multi-threaded std::execution::par sort time");

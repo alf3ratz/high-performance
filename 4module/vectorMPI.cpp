@@ -1,10 +1,12 @@
 #include <mpi.h>
+
 #include <algorithm>
 #include <iostream>
 #include <random>
 #include <vector>
 
 constexpr int ARRAY_SIZE = 9090908;
+const int ROOT = 0;
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
@@ -22,20 +24,28 @@ int main(int argc, char* argv[]) {
     for (auto& number : numbers) {
         number = distribution(gen);
     }
-
-    int localSize = ARRAY_SIZE / worldSize;
+    std::size_t localSize = ARRAY_SIZE / worldSize;
     std::vector<int> localNumbers(localSize);
+
     MPI_Scatter(numbers.data(), localSize, MPI_INT, localNumbers.data(),
-                localSize, MPI_INT, 0, MPI_COMM_WORLD);
+                localSize, MPI_INT, ROOT, MPI_COMM_WORLD);
 
     std::sort(localNumbers.begin(), localNumbers.end());
 
-    std::vector<int> sortedNumbers(ARRAY_SIZE);
-    MPI_Gather(localNumbers.data(), localSize, MPI_INT, sortedNumbers.data(),
-               localSize, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(localNumbers.data(), localSize, MPI_INT, numbers.data(),
+               localSize, MPI_INT, ROOT, MPI_COMM_WORLD);
 
-    if (rank == 0) {
-        std::sort(sortedNumbers.begin(), sortedNumbers.end());
+    if (rank == ROOT) {
+        for (int i = 1; i < worldSize; i++) {
+            std::inplace_merge(numbers.begin(), numbers.begin() + i * localSize,
+                               numbers.begin() + (i + 1) * localSize);
+        }
+
+        if (std::is_sorted(numbers.begin(), numbers.end())) {
+            std::cout << "Список отсортирован верно\n";
+        } else {
+            std::cerr << "Список отсортирован неверно\n";
+        }
     }
 
     MPI_Finalize();
